@@ -275,8 +275,16 @@ class ReportBuilderApp:
         self.bulk_mapping = None      # dict template_col -> source_col
         self.bulk_template_cols = None
 
+        self.undo_stack = []
+        self.redo_stack = []
+        self.UNDO_LIMIT = 25
+
         self._build_ui()
         self._refresh_templates_list()
+
+        self.root.bind_all("<Control-z>", lambda e: self.undo())
+        self.root.bind_all("<Control-y>", lambda e: self.redo())
+        self.root.bind_all("<Control-Shift-Z>", lambda e: self.redo())
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
@@ -284,6 +292,9 @@ class ReportBuilderApp:
         top.pack(fill="x")
         ttk.Button(top, text="Upload Excel File", command=self.load_excel).pack(side="left")
         ttk.Button(top, text="Change Header Row...", command=self.change_header_row).pack(side="left", padx=6)
+        ttk.Separator(top, orient="vertical").pack(side="left", fill="y", padx=8)
+        ttk.Button(top, text="\u21b6 Undo (Ctrl+Z)", command=self.undo).pack(side="left")
+        ttk.Button(top, text="\u21b7 Redo (Ctrl+Y)", command=self.redo).pack(side="left", padx=4)
         self.file_label = ttk.Label(top, text="No file loaded", foreground="gray")
         self.file_label.pack(side="left", padx=10)
 
@@ -542,8 +553,89 @@ class ReportBuilderApp:
         except Exception as e:
             messagebox.showerror("Error parsing header", str(e))
             return
+        self._push_undo()
         self._set_working_data(df, label=f"{os.path.basename(self.file_path)}  (header row {header_idx + 1})")
         messagebox.showinfo("Loaded", f"Loaded {len(df)} rows and {len(df.columns)} columns.")
+
+    # ------------------------------------------------------------ Undo/Redo
+    def _snapshot(self):
+        return {
+            "df_original": self.df_original.copy() if self.df_original is not None else None,
+            "df_processed": self.df_processed.copy() if self.df_processed is not None else None,
+            "file_label": self.file_label.cget("text"),
+            "column_selection": {c: v.get() for c, v in self.column_vars.items()},
+            "dtype_selection": {c: v.get() for c, v in self.dtype_vars.items()},
+            "filters": [dict(f) for f in self.filters],
+            "sort_keys": [dict(k) for k in self.sort_keys],
+            "sort_col": self._sort_col,
+            "sort_asc": self._sort_asc,
+        }
+
+    def _push_undo(self):
+        """Call this right BEFORE making a change, so the state being
+        replaced is saved. Any new action clears the redo stack."""
+        if self.df_original is None and self.df_processed is None:
+            return
+        self.undo_stack.append(self._snapshot())
+        if len(self.undo_stack) > self.UNDO_LIMIT:
+            self.undo_stack.pop(0)
+        self.redo_stack.clear()
+
+    def _restore_snapshot(self, snap):
+        self.df_original = snap["df_original"]
+        self.df_processed = snap["df_processed"]
+        label = snap["file_label"]
+        self.file_label.config(text=label, foreground="gray" if label == "No file loaded" else "black")
+
+        cols = list(self.df_original.columns) if self.df_original is not None else []
+        self._populate_column_controls(cols)
+        for c, val in snap["column_selection"].items():
+            if c in self.column_vars:
+                self.column_vars[c].set(val)
+        for c, val in snap["dtype_selection"].items():
+            if c in self.dtype_vars:
+                self.dtype_vars[c].set(val)
+        self._populate_combo_values(cols)
+
+        self.filters = [dict(f) for f in snap["filters"]]
+        self.filters_listbox.delete(0, "end")
+        for f in self.filters:
+            lbl = f"{f['column']} {f['operator']} '{f['value']}'" if f["operator"] not in ("Is Empty", "Is Not Empty") \
+                else f"{f['column']} {f['operator']}"
+            self.filters_listbox.insert("end", lbl)
+
+        self.sort_keys = [dict(k) for k in snap["sort_keys"]]
+        self.sort_listbox.delete(0, "end")
+        for k in self.sort_keys:
+            self.sort_listbox.insert("end", f"{k['column']} - {k['order']}")
+
+        self._sort_col = snap["sort_col"]
+        self._sort_asc = snap["sort_asc"]
+
+        if self.df_processed is not None:
+            self._render_preview(self.df_processed)
+        else:
+            self.tree.delete(*self.tree.get_children())
+            self.tree["columns"] = []
+            self.row_count_label.config(text="")
+
+    def undo(self):
+        if not self.undo_stack:
+            messagebox.showinfo("Nothing to undo", "No earlier state to go back to.")
+            return
+        self.redo_stack.append(self._snapshot())
+        snap = self.undo_stack.pop()
+        self._restore_snapshot(snap)
+        self.status_label.config(text="Undid last action.", foreground="blue")
+
+    def redo(self):
+        if not self.redo_stack:
+            messagebox.showinfo("Nothing to redo", "No undone action to redo.")
+            return
+        self.undo_stack.append(self._snapshot())
+        snap = self.redo_stack.pop()
+        self._restore_snapshot(snap)
+        self.status_label.config(text="Redid last undone action.", foreground="blue")
 
     def _set_working_data(self, df, label):
         """Central place that (re)sets the working dataset and refreshes
@@ -669,6 +761,7 @@ class ReportBuilderApp:
             return
         try:
             df = self._process_dataframe(self.df_original)
+            self._push_undo()
             self.df_processed = df
             self._sort_col = None
             self._render_preview(self.df_processed)
@@ -782,6 +875,7 @@ class ReportBuilderApp:
                                                       "(Ctrl+click or Shift+click for multiple).")
             return
         idx_to_drop = [int(i) for i in sel]
+        self._push_undo()
         self.df_processed = self.df_processed.drop(index=idx_to_drop).reset_index(drop=True)
         self._render_preview(self.df_processed)
         self.status_label.config(text=f"Deleted {len(idx_to_drop)} row(s). {len(self.df_processed)} rows remain.",
@@ -912,6 +1006,7 @@ class ReportBuilderApp:
 
         new_df = apply_mapping(self.df_original, template_cols, mapping)
         unmatched = [t for t, s in mapping.items() if not s]
+        self._push_undo()
         self._set_working_data(new_df, label=f"Template '{name}' applied to {os.path.basename(self.file_path or '')}")
         msg = f"Filled '{name}' ({len(template_cols)} columns) with {len(new_df)} rows."
         if unmatched:
@@ -1015,6 +1110,7 @@ class ReportBuilderApp:
             return
 
         result = pd.concat(combined, ignore_index=True)
+        self._push_undo()
         self._set_working_data(result, label=f"Bulk combined: {len(self.bulk_files)} files -> {len(result)} rows")
         msg = f"Combined {len(combined)} of {len(self.bulk_files)} files into {len(result)} rows."
         if errors:
