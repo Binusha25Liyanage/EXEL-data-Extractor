@@ -49,6 +49,85 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(SCRIPT_DIR, "output_templates")
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
 
+# ------------------------------------------------------------ theme colors
+CHERRY = "#9A2A3B"
+CHERRY_HOVER = "#C13A4E"
+CHERRY_DARK = "#651C28"
+ASH_BG = "#E8E7E6"
+ASH_MID = "#C7C8CA"
+ASH_DARK = "#8B8D91"
+TEXT_DARK = "#2B2C2E"
+TEXT_MUTED = "#5B5D61"
+WHITE = "#FFFFFF"
+OK_GREEN = "#2E7D4F"
+ERR_RED = "#B23A48"
+FONT = ("Segoe UI", 10)
+FONT_BOLD = ("Segoe UI", 10, "bold")
+
+
+def apply_theme(root):
+    style = ttk.Style(root)
+    try:
+        style.theme_use("clam")
+    except tk.TclError:
+        pass
+    root.configure(bg=ASH_BG)
+
+    style.configure(".", background=ASH_BG, foreground=TEXT_DARK, font=FONT)
+    style.configure("TFrame", background=ASH_BG)
+    style.configure("TLabel", background=ASH_BG, foreground=TEXT_DARK, font=FONT)
+    style.configure("TLabelframe", background=ASH_BG, foreground=TEXT_DARK, bordercolor=ASH_DARK)
+    style.configure("TLabelframe.Label", background=ASH_BG, foreground=TEXT_DARK, font=FONT_BOLD)
+    style.configure("TCheckbutton", background=ASH_BG, foreground=TEXT_DARK, font=FONT)
+    style.map("TCheckbutton", background=[("active", ASH_BG)])
+
+    style.configure("TNotebook", background=ASH_BG, bordercolor=ASH_DARK, tabmargins=(2, 4, 2, 0))
+    style.configure("TNotebook.Tab", background=ASH_MID, foreground=TEXT_DARK, padding=(14, 8), font=FONT_BOLD)
+    style.map("TNotebook.Tab",
+              background=[("selected", CHERRY)],
+              foreground=[("selected", WHITE)])
+
+    style.configure("TButton", background=ASH_MID, foreground=TEXT_DARK, padding=(10, 6),
+                     borderwidth=0, font=FONT, focusthickness=0)
+    style.map("TButton", background=[("active", ASH_DARK)])
+
+    style.configure("Accent.TButton", background=CHERRY, foreground=WHITE, padding=(12, 7), font=FONT_BOLD)
+    style.map("Accent.TButton", background=[("active", CHERRY_HOVER), ("pressed", CHERRY_DARK)],
+              foreground=[("active", WHITE), ("pressed", WHITE)])
+
+    style.configure("Danger.TButton", background=ASH_BG, foreground=ERR_RED, padding=(10, 6), font=FONT)
+    style.map("Danger.TButton", background=[("active", "#F3D9DC")])
+
+    style.configure("TEntry", fieldbackground=WHITE, foreground=TEXT_DARK, bordercolor=ASH_DARK,
+                     lightcolor=ASH_DARK, darkcolor=ASH_DARK)
+    style.configure("TCombobox", fieldbackground=WHITE, foreground=TEXT_DARK, bordercolor=ASH_DARK,
+                     arrowcolor=TEXT_DARK)
+    style.map("TCombobox", fieldbackground=[("readonly", WHITE)])
+
+    style.configure("Treeview", background=WHITE, fieldbackground=WHITE, foreground=TEXT_DARK,
+                     bordercolor=ASH_DARK, rowheight=24, font=FONT)
+    style.configure("Treeview.Heading", background=ASH_MID, foreground=TEXT_DARK, font=FONT_BOLD,
+                     relief="flat")
+    style.map("Treeview.Heading", background=[("active", ASH_DARK)])
+    style.map("Treeview", background=[("selected", CHERRY)], foreground=[("selected", WHITE)])
+
+    style.configure("TopBar.TFrame", background=CHERRY_DARK)
+    style.configure("Brand.TLabel", background=CHERRY_DARK, foreground=WHITE, font=("Segoe UI", 15, "bold"))
+    style.configure("SubBrand.TLabel", background=CHERRY_DARK, foreground=ASH_MID, font=FONT)
+
+    style.configure("ToolBar.TFrame", background=WHITE)
+    style.configure("ToolBar.TLabel", background=WHITE, foreground=TEXT_MUTED, font=FONT)
+
+    style.configure("Card.TLabelframe", background=WHITE, bordercolor=ASH_DARK)
+    style.configure("Card.TLabelframe.Label", background=WHITE, foreground=TEXT_DARK, font=FONT_BOLD)
+    style.configure("Card.TFrame", background=WHITE)
+    style.configure("Card.TLabel", background=WHITE, foreground=TEXT_DARK, font=FONT)
+    style.configure("Card.TCheckbutton", background=WHITE, foreground=TEXT_DARK, font=FONT)
+
+    style.configure("Success.TLabel", background=ASH_BG, foreground=OK_GREEN, font=FONT_BOLD)
+    style.configure("Error.TLabel", background=ASH_BG, foreground=ERR_RED, font=FONT_BOLD)
+    style.configure("Muted.TLabel", background=ASH_BG, foreground=TEXT_MUTED, font=FONT)
+
 
 # ============================================================ pure helpers
 # (no tkinter dependency - kept separate so the mapping/parsing logic can
@@ -138,6 +217,7 @@ class HeaderRowDialog(tk.Toplevel):
         super().__init__(parent)
         self.title(title)
         self.geometry("900x420")
+        self.configure(bg=ASH_BG)
         self.result = None
 
         ttk.Label(
@@ -173,7 +253,7 @@ class HeaderRowDialog(tk.Toplevel):
 
         btn_row = ttk.Frame(self, padding=8)
         btn_row.pack(fill="x")
-        ttk.Button(btn_row, text="Use Selected Row as Header", command=self._confirm).pack(side="left")
+        ttk.Button(btn_row, text="Use Selected Row as Header", style="Accent.TButton", command=self._confirm).pack(side="left")
         ttk.Button(btn_row, text="Cancel (use row 1)", command=self._cancel).pack(side="left", padx=8)
 
         self.transient(parent)
@@ -197,6 +277,7 @@ class MappingDialog(tk.Toplevel):
         super().__init__(parent)
         self.title("Review Column Mapping")
         self.geometry("650x500")
+        self.configure(bg=ASH_BG)
         self.result = None
 
         ttk.Label(
@@ -205,9 +286,9 @@ class MappingDialog(tk.Toplevel):
                  "Best guesses are pre-filled - fix any that are wrong, or leave blank.",
         ).pack(anchor="w")
 
-        canvas = tk.Canvas(self)
+        canvas = tk.Canvas(self, bg=WHITE, highlightthickness=0)
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
-        inner = ttk.Frame(canvas)
+        inner = ttk.Frame(canvas, style="Card.TFrame")
         inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=inner, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
@@ -232,7 +313,7 @@ class MappingDialog(tk.Toplevel):
 
         btn_row = ttk.Frame(self, padding=8)
         btn_row.pack(fill="x")
-        ttk.Button(btn_row, text="Apply Mapping", command=self._confirm).pack(side="left")
+        ttk.Button(btn_row, text="Apply Mapping", style="Accent.TButton", command=self._confirm).pack(side="left")
         ttk.Button(btn_row, text="Cancel", command=self._cancel).pack(side="left", padx=8)
 
         self.transient(parent)
@@ -253,11 +334,16 @@ class MappingDialog(tk.Toplevel):
 
 # =================================================================== app
 
-class ReportBuilderApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Report Builder")
-        self.root.geometry("1300x900")
+class WorkspaceFrame(ttk.Frame):
+    """One independent working session: its own loaded file, columns,
+    filters, sort, undo history, and bulk-process state. The outer
+    AlloyBenchApp hosts many of these at once as tabs, so you can work
+    on more than one extraction job side by side."""
+
+    def __init__(self, parent, app_root, on_close=None):
+        super().__init__(parent)
+        self.root = app_root       # the real Tk() window - used only to parent dialogs
+        self.on_close = on_close   # callback the outer app gives us to close this tab
 
         self.df_original = None
         self.df_processed = None
@@ -282,30 +368,29 @@ class ReportBuilderApp:
         self._build_ui()
         self._refresh_templates_list()
 
-        self.root.bind_all("<Control-z>", lambda e: self.undo())
-        self.root.bind_all("<Control-y>", lambda e: self.redo())
-        self.root.bind_all("<Control-Shift-Z>", lambda e: self.redo())
-
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
-        top = ttk.Frame(self.root, padding=8)
+        top = ttk.Frame(self, style="ToolBar.TFrame", padding=8)
         top.pack(fill="x")
-        ttk.Button(top, text="Upload Excel File", command=self.load_excel).pack(side="left")
+        ttk.Button(top, text="Upload Excel File", style="Accent.TButton", command=self.load_excel).pack(side="left")
         ttk.Button(top, text="Change Header Row...", command=self.change_header_row).pack(side="left", padx=6)
         ttk.Separator(top, orient="vertical").pack(side="left", fill="y", padx=8)
-        ttk.Button(top, text="\u21b6 Undo (Ctrl+Z)", command=self.undo).pack(side="left")
-        ttk.Button(top, text="\u21b7 Redo (Ctrl+Y)", command=self.redo).pack(side="left", padx=4)
-        self.file_label = ttk.Label(top, text="No file loaded", foreground="gray")
+        ttk.Button(top, text="\u21b6 Undo", command=self.undo).pack(side="left")
+        ttk.Button(top, text="\u21b7 Redo", command=self.redo).pack(side="left", padx=4)
+        ttk.Separator(top, orient="vertical").pack(side="left", fill="y", padx=8)
+        ttk.Button(top, text="Close This Workspace", style="Danger.TButton",
+                   command=lambda: self.on_close() if self.on_close else None).pack(side="left")
+        self.file_label = ttk.Label(top, text="No file loaded", style="ToolBar.TLabel")
         self.file_label.pack(side="left", padx=10)
 
-        self.notebook = ttk.Notebook(self.root)
+        self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=False, padx=8, pady=4)
 
-        self.tab_columns = ttk.Frame(self.notebook)
-        self.tab_filters = ttk.Frame(self.notebook)
-        self.tab_sort = ttk.Frame(self.notebook)
-        self.tab_templates = ttk.Frame(self.notebook)
-        self.tab_bulk = ttk.Frame(self.notebook)
+        self.tab_columns = ttk.Frame(self.notebook, style="Card.TFrame")
+        self.tab_filters = ttk.Frame(self.notebook, style="Card.TFrame")
+        self.tab_sort = ttk.Frame(self.notebook, style="Card.TFrame")
+        self.tab_templates = ttk.Frame(self.notebook, style="Card.TFrame")
+        self.tab_bulk = ttk.Frame(self.notebook, style="Card.TFrame")
         self.notebook.add(self.tab_columns, text="Columns && Data Types")
         self.notebook.add(self.tab_filters, text="Filters (by condition)")
         self.notebook.add(self.tab_sort, text="Sort")
@@ -318,14 +403,14 @@ class ReportBuilderApp:
         self._build_templates_tab()
         self._build_bulk_tab()
 
-        apply_bar = ttk.Frame(self.root, padding=8)
+        apply_bar = ttk.Frame(self, padding=8)
         apply_bar.pack(fill="x")
-        ttk.Button(apply_bar, text="Apply && Preview", command=self.apply_all).pack(side="left")
-        self.status_label = ttk.Label(apply_bar, text="", foreground="green")
+        ttk.Button(apply_bar, text="Apply && Preview", style="Accent.TButton", command=self.apply_all).pack(side="left")
+        self.status_label = ttk.Label(apply_bar, text="", style="Success.TLabel")
         self.status_label.pack(side="left", padx=10)
 
         preview_frame = ttk.LabelFrame(
-            self.root,
+            self,
             text="Preview - click a column heading to sort, click/Ctrl+click/Shift+click rows then 'Delete Selected Rows'",
             padding=4,
         )
@@ -333,8 +418,8 @@ class ReportBuilderApp:
 
         row_btns = ttk.Frame(preview_frame)
         row_btns.pack(fill="x", pady=(0, 4))
-        ttk.Button(row_btns, text="Delete Selected Rows", command=self.delete_selected_rows).pack(side="left")
-        self.row_count_label = ttk.Label(row_btns, text="")
+        ttk.Button(row_btns, text="Delete Selected Rows", style="Danger.TButton", command=self.delete_selected_rows).pack(side="left")
+        self.row_count_label = ttk.Label(row_btns, text="", style="Muted.TLabel")
         self.row_count_label.pack(side="left", padx=10)
 
         tree_container = ttk.Frame(preview_frame)
@@ -349,20 +434,23 @@ class ReportBuilderApp:
         hsb.grid(row=1, column=0, sticky="ew")
         tree_container.grid_rowconfigure(0, weight=1)
         tree_container.grid_columnconfigure(0, weight=1)
+        self.tree.tag_configure("oddrow", background=ASH_BG)
+        self.tree.tag_configure("evenrow", background=WHITE)
 
-        export_bar = ttk.Frame(self.root, padding=8)
+        export_bar = ttk.Frame(self, padding=8)
         export_bar.pack(fill="x")
-        ttk.Button(export_bar, text="Export to Excel", command=self.export_excel).pack(side="left", padx=4)
-        ttk.Button(export_bar, text="Export to PDF", command=self.export_pdf).pack(side="left", padx=4)
+        ttk.Button(export_bar, text="Export to Excel", style="Accent.TButton", command=self.export_excel).pack(side="left", padx=4)
+        ttk.Button(export_bar, text="Export to PDF", style="Accent.TButton", command=self.export_pdf).pack(side="left", padx=4)
 
     def _build_columns_tab(self):
-        container = ttk.Frame(self.tab_columns, padding=6)
+        container = ttk.Frame(self.tab_columns, padding=6, style="Card.TFrame")
         container.pack(fill="both", expand=True)
-        ttk.Label(container, text="Select columns to keep and choose a data type for each:").pack(anchor="w")
+        ttk.Label(container, text="Select columns to keep and choose a data type for each:",
+                  style="Card.TLabel").pack(anchor="w")
 
-        canvas = tk.Canvas(container, height=180)
+        canvas = tk.Canvas(container, height=180, bg=WHITE, highlightthickness=0)
         scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
-        self.columns_inner = ttk.Frame(canvas)
+        self.columns_inner = ttk.Frame(canvas, style="Card.TFrame")
 
         self.columns_inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=self.columns_inner, anchor="nw")
@@ -372,68 +460,72 @@ class ReportBuilderApp:
         scrollbar.pack(side="right", fill="y")
 
     def _build_filters_tab(self):
-        container = ttk.Frame(self.tab_filters, padding=6)
+        container = ttk.Frame(self.tab_filters, padding=6, style="Card.TFrame")
         container.pack(fill="both", expand=True)
 
-        row = ttk.Frame(container)
+        row = ttk.Frame(container, style="Card.TFrame")
         row.pack(fill="x", pady=4)
-        ttk.Label(row, text="Column:").pack(side="left")
+        ttk.Label(row, text="Column:", style="Card.TLabel").pack(side="left")
         self.filter_col_cb = ttk.Combobox(row, state="readonly", width=20)
         self.filter_col_cb.pack(side="left", padx=4)
 
-        ttk.Label(row, text="Operator:").pack(side="left")
+        ttk.Label(row, text="Operator:", style="Card.TLabel").pack(side="left")
         self.filter_op_cb = ttk.Combobox(row, state="readonly", values=OPERATORS, width=18)
         self.filter_op_cb.pack(side="left", padx=4)
         self.filter_op_cb.current(0)
 
-        ttk.Label(row, text="Value:").pack(side="left")
+        ttk.Label(row, text="Value:", style="Card.TLabel").pack(side="left")
         self.filter_val_entry = ttk.Entry(row, width=20)
         self.filter_val_entry.pack(side="left", padx=4)
 
-        ttk.Button(row, text="Add Filter", command=self.add_filter).pack(side="left", padx=8)
+        ttk.Button(row, text="Add Filter", style="Accent.TButton", command=self.add_filter).pack(side="left", padx=8)
 
-        self.filters_listbox = tk.Listbox(container, height=5)
+        self.filters_listbox = tk.Listbox(container, height=5, bg=WHITE, relief="solid", borderwidth=1,
+                                           highlightthickness=0, selectbackground=CHERRY, selectforeground=WHITE)
         self.filters_listbox.pack(fill="x", pady=6)
-        ttk.Button(container, text="Remove Selected Filter", command=self.remove_filter).pack(anchor="w")
+        ttk.Button(container, text="Remove Selected Filter", style="Danger.TButton", command=self.remove_filter).pack(anchor="w")
         ttk.Label(container, text="(These filters are also used by Bulk Process > Export Each File Separately)",
-                  foreground="gray").pack(anchor="w", pady=(6, 0))
+                  style="Card.TLabel", foreground=TEXT_MUTED).pack(anchor="w", pady=(6, 0))
 
     def _build_sort_tab(self):
-        container = ttk.Frame(self.tab_sort, padding=6)
+        container = ttk.Frame(self.tab_sort, padding=6, style="Card.TFrame")
         container.pack(fill="both", expand=True)
-        ttk.Label(container, text="(Tip: click a column heading in the preview table to sort instantly)").pack(anchor="w")
+        ttk.Label(container, text="(Tip: click a column heading in the preview table to sort instantly)",
+                  style="Card.TLabel").pack(anchor="w")
 
-        row = ttk.Frame(container)
+        row = ttk.Frame(container, style="Card.TFrame")
         row.pack(fill="x", pady=4)
-        ttk.Label(row, text="Column:").pack(side="left")
+        ttk.Label(row, text="Column:", style="Card.TLabel").pack(side="left")
         self.sort_col_cb = ttk.Combobox(row, state="readonly", width=20)
         self.sort_col_cb.pack(side="left", padx=4)
 
-        ttk.Label(row, text="Order:").pack(side="left")
+        ttk.Label(row, text="Order:", style="Card.TLabel").pack(side="left")
         self.sort_order_cb = ttk.Combobox(row, state="readonly", values=["Ascending", "Descending"], width=12)
         self.sort_order_cb.pack(side="left", padx=4)
         self.sort_order_cb.current(0)
 
-        ttk.Button(row, text="Add Sort Key", command=self.add_sort_key).pack(side="left", padx=8)
+        ttk.Button(row, text="Add Sort Key", style="Accent.TButton", command=self.add_sort_key).pack(side="left", padx=8)
 
-        self.sort_listbox = tk.Listbox(container, height=5)
+        self.sort_listbox = tk.Listbox(container, height=5, bg=WHITE, relief="solid", borderwidth=1,
+                                        highlightthickness=0, selectbackground=CHERRY, selectforeground=WHITE)
         self.sort_listbox.pack(fill="x", pady=6)
-        ttk.Label(container, text="(Multiple sort keys applied in the order listed - first is primary)").pack(anchor="w")
-        ttk.Button(container, text="Remove Selected Sort Key", command=self.remove_sort_key).pack(anchor="w")
+        ttk.Label(container, text="(Multiple sort keys applied in the order listed - first is primary)",
+                  style="Card.TLabel").pack(anchor="w")
+        ttk.Button(container, text="Remove Selected Sort Key", style="Danger.TButton", command=self.remove_sort_key).pack(anchor="w")
 
     def _build_templates_tab(self):
-        container = ttk.Frame(self.tab_templates, padding=6)
+        container = ttk.Frame(self.tab_templates, padding=6, style="Card.TFrame")
         container.pack(fill="both", expand=True)
 
         ttk.Label(
-            container,
+            container, style="Card.TLabel",
             text="Save output structures you use often here, then auto-fill one from whatever sheet you loaded above.",
         ).pack(anchor="w")
 
-        btn_row = ttk.Frame(container)
+        btn_row = ttk.Frame(container, style="Card.TFrame")
         btn_row.pack(fill="x", pady=6)
-        ttk.Button(btn_row, text="Upload New Template Structure...", command=self.upload_template).pack(side="left")
-        ttk.Button(btn_row, text="Delete Selected Template", command=self.delete_template).pack(side="left", padx=6)
+        ttk.Button(btn_row, text="Upload New Template Structure...", style="Accent.TButton", command=self.upload_template).pack(side="left")
+        ttk.Button(btn_row, text="Delete Selected Template", style="Danger.TButton", command=self.delete_template).pack(side="left", padx=6)
         ttk.Button(btn_row, text="Preview Selected Template's Columns", command=self.preview_template_columns).pack(side="left", padx=6)
 
         self.templates_tree = ttk.Treeview(container, columns=["name", "cols"], show="headings",
@@ -445,68 +537,70 @@ class ReportBuilderApp:
         self.templates_tree.pack(fill="x", pady=6)
 
         ttk.Button(
-            container, text="Auto-Fill Selected Template From Loaded Data",
+            container, text="Auto-Fill Selected Template From Loaded Data", style="Accent.TButton",
             command=self.autofill_template_from_loaded,
         ).pack(anchor="w", pady=(6, 0))
         ttk.Label(
-            container,
+            container, style="Card.TLabel", foreground=TEXT_MUTED,
             text="(This replaces the working data below with the template's columns, matched from your loaded sheet.\n"
                  "You'll get a review screen to fix any column matches before it's applied.)",
-            foreground="gray",
         ).pack(anchor="w")
 
     def _build_bulk_tab(self):
-        container = ttk.Frame(self.tab_bulk, padding=6)
+        container = ttk.Frame(self.tab_bulk, padding=6, style="Card.TFrame")
         container.pack(fill="both", expand=True)
 
         ttk.Label(
-            container,
+            container, style="Card.TLabel",
             text="Process many source files at once against one saved Output Template.",
         ).pack(anchor="w")
 
-        btn_row = ttk.Frame(container)
+        btn_row = ttk.Frame(container, style="Card.TFrame")
         btn_row.pack(fill="x", pady=6)
-        ttk.Button(btn_row, text="Select Multiple Excel Files...", command=self.select_bulk_files).pack(side="left")
+        ttk.Button(btn_row, text="Select Multiple Excel Files...", style="Accent.TButton", command=self.select_bulk_files).pack(side="left")
         ttk.Button(btn_row, text="Remove Selected File", command=self.remove_bulk_file).pack(side="left", padx=6)
-        ttk.Button(btn_row, text="Clear All", command=self.clear_bulk_files).pack(side="left", padx=6)
+        ttk.Button(btn_row, text="Clear All", style="Danger.TButton", command=self.clear_bulk_files).pack(side="left", padx=6)
 
-        self.bulk_files_listbox = tk.Listbox(container, height=6)
+        self.bulk_files_listbox = tk.Listbox(container, height=6, bg=WHITE, relief="solid", borderwidth=1,
+                                              highlightthickness=0, selectbackground=CHERRY, selectforeground=WHITE)
         self.bulk_files_listbox.pack(fill="x", pady=4)
 
-        template_row = ttk.Frame(container)
+        template_row = ttk.Frame(container, style="Card.TFrame")
         template_row.pack(fill="x", pady=6)
-        ttk.Label(template_row, text="Output Template:").pack(side="left")
+        ttk.Label(template_row, text="Output Template:", style="Card.TLabel").pack(side="left")
         self.bulk_template_cb = ttk.Combobox(template_row, state="readonly", width=35)
         self.bulk_template_cb.pack(side="left", padx=6)
         ttk.Button(template_row, text="Refresh List", command=self._refresh_templates_list).pack(side="left")
 
         ttk.Button(
-            container, text="1) Auto-Map Columns (using first file)",
+            container, text="1) Auto-Map Columns (using first file)", style="Accent.TButton",
             command=self.bulk_automap,
         ).pack(anchor="w", pady=(8, 2))
 
         self.bulk_source_col_var = tk.StringVar(value="Add 'Source File' column")
         self.bulk_add_source_col = tk.BooleanVar(value=True)
         ttk.Checkbutton(container, text="Add a 'Source File' column showing which file each row came from",
-                         variable=self.bulk_add_source_col).pack(anchor="w")
+                         style="Card.TCheckbutton", variable=self.bulk_add_source_col).pack(anchor="w")
 
-        action_row = ttk.Frame(container)
+        action_row = ttk.Frame(container, style="Card.TFrame")
         action_row.pack(fill="x", pady=8)
         ttk.Button(
-            action_row, text="2a) Combine All Into Working Data (then filter/sort/export as usual)",
+            action_row, text="2a) Combine All Into Working Data (then filter/sort/export as usual)", style="Accent.TButton",
             command=self.bulk_combine,
         ).pack(side="left")
 
-        action_row2 = ttk.Frame(container)
+        action_row2 = ttk.Frame(container, style="Card.TFrame")
         action_row2.pack(fill="x", pady=4)
         self.bulk_export_pdf_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(action_row2, text="Also export a PDF per file", variable=self.bulk_export_pdf_var).pack(side="left")
+        ttk.Checkbutton(action_row2, text="Also export a PDF per file", style="Card.TCheckbutton",
+                         variable=self.bulk_export_pdf_var).pack(side="left")
         ttk.Button(
-            action_row2, text="2b) Export Each File Separately (uses current Filters/Sort settings)",
+            action_row2, text="2b) Export Each File Separately (uses current Filters/Sort settings)", style="Accent.TButton",
             command=self.bulk_export_separate,
         ).pack(side="left", padx=10)
 
-        self.bulk_log = tk.Text(container, height=8, state="disabled")
+        self.bulk_log = tk.Text(container, height=8, state="disabled", bg=WHITE, relief="solid", borderwidth=1,
+                                 highlightthickness=0)
         self.bulk_log.pack(fill="both", expand=True, pady=(8, 0))
 
     def _bulk_log(self, msg):
@@ -626,7 +720,7 @@ class ReportBuilderApp:
         self.redo_stack.append(self._snapshot())
         snap = self.undo_stack.pop()
         self._restore_snapshot(snap)
-        self.status_label.config(text="Undid last action.", foreground="blue")
+        self.status_label.config(text="Undid last action.", foreground=CHERRY)
 
     def redo(self):
         if not self.redo_stack:
@@ -635,7 +729,7 @@ class ReportBuilderApp:
         self.undo_stack.append(self._snapshot())
         snap = self.redo_stack.pop()
         self._restore_snapshot(snap)
-        self.status_label.config(text="Redid last undone action.", foreground="blue")
+        self.status_label.config(text="Redid last undone action.", foreground=CHERRY)
 
     def _set_working_data(self, df, label):
         """Central place that (re)sets the working dataset and refreshes
@@ -660,18 +754,18 @@ class ReportBuilderApp:
         self.column_vars = {}
         self.dtype_vars = {}
 
-        header = ttk.Frame(self.columns_inner)
+        header = ttk.Frame(self.columns_inner, style="Card.TFrame")
         header.pack(fill="x")
-        ttk.Label(header, text="Keep", width=6).pack(side="left")
-        ttk.Label(header, text="Column", width=30).pack(side="left")
-        ttk.Label(header, text="Convert to type").pack(side="left")
+        ttk.Label(header, text="Keep", width=6, style="Card.TLabel").pack(side="left")
+        ttk.Label(header, text="Column", width=30, style="Card.TLabel").pack(side="left")
+        ttk.Label(header, text="Convert to type", style="Card.TLabel").pack(side="left")
 
         for col in columns:
-            row = ttk.Frame(self.columns_inner)
+            row = ttk.Frame(self.columns_inner, style="Card.TFrame")
             row.pack(fill="x", pady=1)
             var = tk.BooleanVar(value=True)
-            ttk.Checkbutton(row, variable=var, width=6).pack(side="left")
-            ttk.Label(row, text=str(col), width=30).pack(side="left")
+            ttk.Checkbutton(row, variable=var, width=6, style="Card.TCheckbutton").pack(side="left")
+            ttk.Label(row, text=str(col), width=30, style="Card.TLabel").pack(side="left")
             dtype_var = tk.StringVar(value="Text")
             cb = ttk.Combobox(row, textvariable=dtype_var, state="readonly", values=DTYPE_OPTIONS, width=20)
             cb.pack(side="left")
@@ -767,7 +861,7 @@ class ReportBuilderApp:
             self._render_preview(self.df_processed)
             self.status_label.config(
                 text=f"Processed: {len(self.df_processed)} rows, {len(self.df_processed.columns)} columns.",
-                foreground="green",
+                foreground=OK_GREEN,
             )
         except Exception as e:
             traceback.print_exc()
@@ -879,7 +973,7 @@ class ReportBuilderApp:
         self.df_processed = self.df_processed.drop(index=idx_to_drop).reset_index(drop=True)
         self._render_preview(self.df_processed)
         self.status_label.config(text=f"Deleted {len(idx_to_drop)} row(s). {len(self.df_processed)} rows remain.",
-                                  foreground="green")
+                                  foreground=OK_GREEN)
 
     # ------------------------------------------------------------ Preview
     def _render_preview(self, df):
@@ -893,7 +987,8 @@ class ReportBuilderApp:
             self.tree.column(col, width=120, anchor="w")
         for i, row in df.iterrows():
             values = ["" if pd.isna(v) else str(v) for v in row.tolist()]
-            self.tree.insert("", "end", iid=str(i), values=values)
+            tag = "evenrow" if i % 2 == 0 else "oddrow"
+            self.tree.insert("", "end", iid=str(i), values=values, tags=(tag,))
         self.row_count_label.config(text=f"{len(df)} rows shown")
 
     # -------------------------------------------------- Template library
@@ -1228,18 +1323,86 @@ class ReportBuilderApp:
         col_width = available_width / max(num_cols, 1)
         table = Table(data, colWidths=[col_width] * num_cols, repeatRows=1)
         table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#651C28")),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F2F2")]),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#E8E7E6")]),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ]))
         elements.append(table)
         doc.build(elements)
 
 
+class AlloyBenchApp:
+    """Outer application shell: the branded top bar and a notebook of
+    independent WorkspaceFrame tabs, so more than one extraction job
+    can be open and worked on at the same time."""
+
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Alloy Bench - Report Builder")
+        self.root.geometry("1350x950")
+        apply_theme(self.root)
+
+        self.workspaces = {}   # notebook tab path (str) -> WorkspaceFrame
+        self._workspace_count = 0
+
+        self._build_chrome()
+        self.add_workspace()
+
+        self.root.bind_all("<Control-z>", lambda e: self._dispatch("undo"))
+        self.root.bind_all("<Control-y>", lambda e: self._dispatch("redo"))
+        self.root.bind_all("<Control-Shift-Z>", lambda e: self._dispatch("redo"))
+        self.root.bind_all("<Control-t>", lambda e: self.add_workspace())
+        self.root.bind_all("<Control-w>", lambda e: self.close_current_workspace())
+
+    def _build_chrome(self):
+        topbar = ttk.Frame(self.root, style="TopBar.TFrame", padding=(16, 12))
+        topbar.pack(fill="x")
+        ttk.Label(topbar, text="ALLOY BENCH", style="Brand.TLabel").pack(side="left")
+        ttk.Label(topbar, text="  Report Builder", style="SubBrand.TLabel").pack(side="left")
+        ttk.Button(topbar, text="+ New Workspace  (Ctrl+T)", style="Accent.TButton",
+                   command=self.add_workspace).pack(side="right")
+
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill="both", expand=True, padx=8, pady=8)
+
+    def add_workspace(self):
+        self._workspace_count += 1
+        label = f"Workspace {self._workspace_count}"
+        ws = WorkspaceFrame(self.notebook, self.root, on_close=None)
+        self.notebook.add(ws, text=label)
+        tab_id = str(ws)
+        ws.on_close = lambda tid=tab_id: self.close_workspace(tid)
+        self.workspaces[tab_id] = ws
+        self.notebook.select(ws)
+
+    def close_workspace(self, tab_id):
+        if len(self.workspaces) <= 1:
+            messagebox.showinfo("Can't close", "At least one workspace must stay open.")
+            return
+        ws = self.workspaces.get(tab_id)
+        if ws is None:
+            return
+        if not messagebox.askyesno("Close workspace?", "Close this workspace? Any unsaved work in it will be lost."):
+            return
+        self.notebook.forget(ws)
+        del self.workspaces[tab_id]
+
+    def close_current_workspace(self):
+        sel = self.notebook.select()
+        if sel:
+            self.close_workspace(sel)
+
+    def _dispatch(self, method_name):
+        sel = self.notebook.select()
+        ws = self.workspaces.get(sel)
+        if ws:
+            getattr(ws, method_name)()
+
+
 def main():
     root = tk.Tk()
-    app = ReportBuilderApp(root)
+    app = AlloyBenchApp(root)
     root.mainloop()
 
 
