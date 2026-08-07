@@ -115,3 +115,38 @@ DESKTOP SHORTCUTS (no need to open a terminal each time):
   report_builder.py (and the output_templates folder that appears next
   to it) - the launcher just runs "python report_builder.py" from
   wherever it sits.
+
+WINDOW SIZE / EXPORT BUTTONS:
+- The app now auto-sizes its window to fit YOUR screen on launch
+  (previously it opened at a fixed 1350x950, which on smaller/laptop
+  screens pushed the bottom of the window - including the Export
+  buttons - off screen with no way to reach them). It also starts
+  maximized where your OS supports it.
+- The window is fully resizable and reflows correctly when you
+  minimize/maximize/restore or drag-resize it - the data preview area
+  grows or shrinks to fill available space; the toolbars stay a fixed
+  height.
+- Minimum window size is 850x550 so it stays usable even on small
+  displays; a horizontal scrollbar appears under the preview table if
+  a sheet has more columns than fit on screen.
+- "Export to Excel" and "Export to PDF" now also appear in the TOP
+  toolbar of each workspace (top-right, next to Upload/Undo/Redo) as
+  well as at the bottom, so they're always visible no matter the
+  window size.
+
+SORTING THE TEMPLATE LIST (Output Templates tab):
+- Click "Template Name" or "# Columns" at the top of the saved-
+  templates list to sort it that way; click again to reverse. Useful
+  once you've saved several output structures and want to find one
+  quickly.
+
+SORTING FILLED DATA WITHOUT LEAVING THE TEMPLATES TAB:
+- The "Output Templates" tab now has its own "Sort the filled data"
+  section below the Auto-Fill button: pick a column + Ascending/
+  Descending, click "Add / Update Sort Column". Add more columns the
+  same way for a multi-level sort (first one added is the primary
+  key). "Clear Sort" resets it.
+- This is the exact same sort as clicking column headings in the
+  preview table (and Shift+click for multi-column) - just reachable
+  without switching to the Sort tab. All three (Templates tab
+  controls, preview-header clicks, Sort tab) share the same result.
