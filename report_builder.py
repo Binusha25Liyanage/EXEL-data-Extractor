@@ -207,6 +207,35 @@ def apply_mapping(df_source, template_cols, mapping):
     return new_df
 
 
+def bind_mousewheel(canvas):
+    """Make a Canvas-based scroll area respond to a mouse wheel / trackpad
+    two-finger scroll while the pointer is over it. Needed because a bare
+    Canvas+Scrollbar combo in Tk has no wheel binding by default."""
+
+    def _wheel(event):
+        if getattr(event, "num", None) == 4:
+            canvas.yview_scroll(-1, "units")
+        elif getattr(event, "num", None) == 5:
+            canvas.yview_scroll(1, "units")
+        else:
+            delta = event.delta
+            step = int(-1 * (delta / 120)) if abs(delta) >= 120 else (-1 if delta > 0 else 1)
+            canvas.yview_scroll(step, "units")
+
+    def _bind(event):
+        canvas.bind_all("<MouseWheel>", _wheel)
+        canvas.bind_all("<Button-4>", _wheel)
+        canvas.bind_all("<Button-5>", _wheel)
+
+    def _unbind(event):
+        canvas.unbind_all("<MouseWheel>")
+        canvas.unbind_all("<Button-4>")
+        canvas.unbind_all("<Button-5>")
+
+    canvas.bind("<Enter>", _bind)
+    canvas.bind("<Leave>", _unbind)
+
+
 # ================================================================ dialogs
 
 class HeaderRowDialog(tk.Toplevel):
@@ -294,6 +323,7 @@ class MappingDialog(tk.Toplevel):
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="top", fill="both", expand=True, padx=8)
         scrollbar.pack(side="right", fill="y")
+        bind_mousewheel(canvas)
 
         header = ttk.Frame(inner)
         header.pack(fill="x")
@@ -354,8 +384,7 @@ class WorkspaceFrame(ttk.Frame):
         self.filters = []
         self.sort_keys = []
 
-        self._sort_col = None
-        self._sort_asc = True
+        self._click_sort_keys = []    # list of {"column": str, "ascending": bool}, priority order
 
         self.bulk_files = []          # list of paths
         self.bulk_mapping = None      # dict template_col -> source_col
@@ -411,7 +440,8 @@ class WorkspaceFrame(ttk.Frame):
 
         preview_frame = ttk.LabelFrame(
             self,
-            text="Preview - click a column heading to sort, click/Ctrl+click/Shift+click rows then 'Delete Selected Rows'",
+            text="Preview - click a heading to sort, Shift+click to add more sort columns, "
+                 "click/Ctrl+click/Shift+click rows then 'Delete Selected Rows'",
             padding=4,
         )
         preview_frame.pack(fill="both", expand=True, padx=8, pady=4)
@@ -419,6 +449,7 @@ class WorkspaceFrame(ttk.Frame):
         row_btns = ttk.Frame(preview_frame)
         row_btns.pack(fill="x", pady=(0, 4))
         ttk.Button(row_btns, text="Delete Selected Rows", style="Danger.TButton", command=self.delete_selected_rows).pack(side="left")
+        ttk.Button(row_btns, text="Clear Sort", command=self.clear_click_sort).pack(side="left", padx=6)
         self.row_count_label = ttk.Label(row_btns, text="", style="Muted.TLabel")
         self.row_count_label.pack(side="left", padx=10)
 
@@ -426,6 +457,7 @@ class WorkspaceFrame(ttk.Frame):
         tree_container.pack(fill="both", expand=True)
 
         self.tree = ttk.Treeview(tree_container, show="headings", selectmode="extended")
+        self.tree.bind("<Button-1>", self._header_click)
         vsb = ttk.Scrollbar(tree_container, orient="vertical", command=self.tree.yview)
         hsb = ttk.Scrollbar(tree_container, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
@@ -458,6 +490,7 @@ class WorkspaceFrame(ttk.Frame):
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        bind_mousewheel(canvas)
 
     def _build_filters_tab(self):
         container = ttk.Frame(self.tab_filters, padding=6, style="Card.TFrame")
@@ -661,8 +694,7 @@ class WorkspaceFrame(ttk.Frame):
             "dtype_selection": {c: v.get() for c, v in self.dtype_vars.items()},
             "filters": [dict(f) for f in self.filters],
             "sort_keys": [dict(k) for k in self.sort_keys],
-            "sort_col": self._sort_col,
-            "sort_asc": self._sort_asc,
+            "click_sort_keys": [dict(k) for k in self._click_sort_keys],
         }
 
     def _push_undo(self):
@@ -703,8 +735,7 @@ class WorkspaceFrame(ttk.Frame):
         for k in self.sort_keys:
             self.sort_listbox.insert("end", f"{k['column']} - {k['order']}")
 
-        self._sort_col = snap["sort_col"]
-        self._sort_asc = snap["sort_asc"]
+        self._click_sort_keys = [dict(k) for k in snap["click_sort_keys"]]
 
         if self.df_processed is not None:
             self._render_preview(self.df_processed)
@@ -745,7 +776,7 @@ class WorkspaceFrame(ttk.Frame):
         self.filters_listbox.delete(0, "end")
         self.sort_listbox.delete(0, "end")
         self.df_processed = df.copy()
-        self._sort_col = None
+        self._click_sort_keys = []
         self._render_preview(self.df_processed)
 
     def _populate_column_controls(self, columns):
@@ -826,25 +857,64 @@ class WorkspaceFrame(ttk.Frame):
         self.sort_listbox.delete(idx)
         del self.sort_keys[idx]
 
-    def _click_sort(self, col):
+    def _header_click(self, event):
+        """Click a preview column heading to sort by it; Shift+click adds
+        it as an additional sort key instead of replacing the sort, so
+        you can build a multi-column sort directly from the table."""
+        region = self.tree.identify_region(event.x, event.y)
+        if region != "heading":
+            return
+        col_id = self.tree.identify_column(event.x)
+        try:
+            idx = int(col_id.replace("#", "")) - 1
+        except ValueError:
+            return
+        cols = list(self.tree["columns"])
+        if idx < 0 or idx >= len(cols):
+            return
+        col = cols[idx]
+        shift_held = bool(event.state & 0x0001)
+        self._click_sort(col, add=shift_held)
+
+    def _click_sort(self, col, add=False):
         if self.df_processed is None or col not in self.df_processed.columns:
             return
-        if self._sort_col == col:
-            self._sort_asc = not self._sort_asc
-        else:
-            self._sort_col = col
-            self._sort_asc = True
-        try:
-            numeric = pd.to_numeric(self.df_processed[col], errors="coerce")
-            if numeric.notna().sum() >= 0.7 * len(numeric):
-                key = numeric
+        existing = next((k for k in self._click_sort_keys if k["column"] == col), None)
+        if add:
+            if existing:
+                existing["ascending"] = not existing["ascending"]
             else:
-                key = self.df_processed[col].astype(str).str.lower()
-            order = key.sort_values(ascending=self._sort_asc, kind="mergesort").index
+                self._click_sort_keys.append({"column": col, "ascending": True})
+        else:
+            if existing and len(self._click_sort_keys) == 1:
+                existing["ascending"] = not existing["ascending"]
+            else:
+                self._click_sort_keys = [{"column": col, "ascending": True}]
+        self._apply_click_sort()
+
+    def clear_click_sort(self):
+        self._click_sort_keys = []
+        if self.df_processed is not None:
+            self._render_preview(self.df_processed)
+
+    def _apply_click_sort(self):
+        if not self._click_sort_keys:
+            return
+        by = [k["column"] for k in self._click_sort_keys]
+        ascending = [k["ascending"] for k in self._click_sort_keys]
+        try:
+            helper = pd.DataFrame(index=self.df_processed.index)
+            for c in by:
+                numeric = pd.to_numeric(self.df_processed[c], errors="coerce")
+                if numeric.notna().sum() >= 0.7 * len(numeric):
+                    helper[c] = numeric
+                else:
+                    helper[c] = self.df_processed[c].astype(str).str.lower()
+            order = helper.sort_values(by=by, ascending=ascending, kind="mergesort").index
             self.df_processed = self.df_processed.loc[order].reset_index(drop=True)
         except Exception:
             self.df_processed = self.df_processed.sort_values(
-                by=col, ascending=self._sort_asc, kind="mergesort"
+                by=by, ascending=ascending, kind="mergesort"
             ).reset_index(drop=True)
         self._render_preview(self.df_processed)
 
@@ -857,7 +927,7 @@ class WorkspaceFrame(ttk.Frame):
             df = self._process_dataframe(self.df_original)
             self._push_undo()
             self.df_processed = df
-            self._sort_col = None
+            self._click_sort_keys = []
             self._render_preview(self.df_processed)
             self.status_label.config(
                 text=f"Processed: {len(self.df_processed)} rows, {len(self.df_processed.columns)} columns.",
@@ -979,11 +1049,15 @@ class WorkspaceFrame(ttk.Frame):
     def _render_preview(self, df):
         self.tree.delete(*self.tree.get_children())
         self.tree["columns"] = list(df.columns)
+        multi = len(self._click_sort_keys) > 1
         for col in df.columns:
             arrow = ""
-            if col == self._sort_col:
-                arrow = " \u25B2" if self._sort_asc else " \u25BC"
-            self.tree.heading(col, text=str(col) + arrow, command=lambda c=col: self._click_sort(c))
+            key = next((k for k in self._click_sort_keys if k["column"] == col), None)
+            if key:
+                priority = self._click_sort_keys.index(key) + 1
+                symbol = "\u25B2" if key["ascending"] else "\u25BC"
+                arrow = f" {symbol}{priority}" if multi else f" {symbol}"
+            self.tree.heading(col, text=str(col) + arrow)
             self.tree.column(col, width=120, anchor="w")
         for i, row in df.iterrows():
             values = ["" if pd.isna(v) else str(v) for v in row.tolist()]
