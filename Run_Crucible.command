@@ -2,7 +2,7 @@
 # macOS/Linux launcher. Keep this file in the same folder as
 # report_builder.py. First time only: right-click > Open (macOS may warn
 # about an unidentified developer - that's expected for your own script),
-# or run: chmod +x Run_AlloyBench.command
+# or run: chmod +x Run_Crucible.command
 
 cd "$(dirname "$0")"
 

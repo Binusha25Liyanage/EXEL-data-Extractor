@@ -367,7 +367,7 @@ class MappingDialog(tk.Toplevel):
 class WorkspaceFrame(ttk.Frame):
     """One independent working session: its own loaded file, columns,
     filters, sort, undo history, and bulk-process state. The outer
-    AlloyBenchApp hosts many of these at once as tabs, so you can work
+    CrucibleApp hosts many of these at once as tabs, so you can work
     on more than one extraction job side by side."""
 
     def __init__(self, parent, app_root, on_close=None):
@@ -1472,14 +1472,14 @@ class WorkspaceFrame(ttk.Frame):
         doc.build(elements)
 
 
-class AlloyBenchApp:
+class CrucibleApp:
     """Outer application shell: the branded top bar and a notebook of
     independent WorkspaceFrame tabs, so more than one extraction job
     can be open and worked on at the same time."""
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Alloy Bench - Report Builder")
+        self.root.title("Crucible - Report Builder")
         apply_theme(self.root)
         self._fit_window()
 
@@ -1521,7 +1521,7 @@ class AlloyBenchApp:
     def _build_chrome(self):
         topbar = ttk.Frame(self.root, style="TopBar.TFrame", padding=(16, 12))
         topbar.pack(fill="x")
-        ttk.Label(topbar, text="ALLOY BENCH", style="Brand.TLabel").pack(side="left")
+        ttk.Label(topbar, text="CRUCIBLE", style="Brand.TLabel").pack(side="left")
         ttk.Label(topbar, text="  Report Builder", style="SubBrand.TLabel").pack(side="left")
         ttk.Button(topbar, text="+ New Workspace  (Ctrl+T)", style="Accent.TButton",
                    command=self.add_workspace).pack(side="right")
@@ -1565,7 +1565,7 @@ class AlloyBenchApp:
 
 def main():
     root = tk.Tk()
-    app = AlloyBenchApp(root)
+    app = CrucibleApp(root)
     root.mainloop()
 
 

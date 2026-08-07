@@ -1,5 +1,5 @@
 @echo off
-REM Double-click this file to launch Alloy Bench.
+REM Double-click this file to launch Crucible.
 REM Keep this .bat file in the SAME FOLDER as report_builder.py.
 
 cd /d "%~dp0"
@@ -15,6 +15,6 @@ if %errorlevel% neq 0 (
 python report_builder.py
 if %errorlevel% neq 0 (
     echo.
-    echo Alloy Bench closed with an error - see the message above.
+    echo Crucible closed with an error - see the message above.
     pause
 )
