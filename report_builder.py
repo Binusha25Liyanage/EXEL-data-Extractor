@@ -386,6 +386,9 @@ class WorkspaceFrame(ttk.Frame):
 
         self._click_sort_keys = []    # list of {"column": str, "ascending": bool}, priority order
 
+        self._templates_sort_col = "name"
+        self._templates_sort_asc = True
+
         self.bulk_files = []          # list of paths
         self.bulk_mapping = None      # dict template_col -> source_col
         self.bulk_template_cols = None
@@ -411,6 +414,9 @@ class WorkspaceFrame(ttk.Frame):
                    command=lambda: self.on_close() if self.on_close else None).pack(side="left")
         self.file_label = ttk.Label(top, text="No file loaded", style="ToolBar.TLabel")
         self.file_label.pack(side="left", padx=10)
+
+        ttk.Button(top, text="Export to PDF", style="Accent.TButton", command=self.export_pdf).pack(side="right", padx=(6, 0))
+        ttk.Button(top, text="Export to Excel", style="Accent.TButton", command=self.export_excel).pack(side="right")
 
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=False, padx=8, pady=4)
@@ -563,8 +569,8 @@ class WorkspaceFrame(ttk.Frame):
 
         self.templates_tree = ttk.Treeview(container, columns=["name", "cols"], show="headings",
                                             selectmode="browse", height=6)
-        self.templates_tree.heading("name", text="Template Name")
-        self.templates_tree.heading("cols", text="# Columns")
+        self.templates_tree.heading("name", text="Template Name", command=lambda: self._sort_templates_tree("name"))
+        self.templates_tree.heading("cols", text="# Columns", command=lambda: self._sort_templates_tree("cols"))
         self.templates_tree.column("name", width=300, anchor="w")
         self.templates_tree.column("cols", width=100, anchor="center")
         self.templates_tree.pack(fill="x", pady=6)
@@ -578,6 +584,45 @@ class WorkspaceFrame(ttk.Frame):
             text="(This replaces the working data below with the template's columns, matched from your loaded sheet.\n"
                  "You'll get a review screen to fix any column matches before it's applied.)",
         ).pack(anchor="w")
+
+        ttk.Separator(container, orient="horizontal").pack(fill="x", pady=10)
+
+        ttk.Label(container, text="Sort the filled data (right here, no need to switch tabs):",
+                  style="Card.TLabel").pack(anchor="w")
+        sort_row = ttk.Frame(container, style="Card.TFrame")
+        sort_row.pack(fill="x", pady=4)
+        ttk.Label(sort_row, text="Column:", style="Card.TLabel").pack(side="left")
+        self.template_sort_col_cb = ttk.Combobox(sort_row, state="readonly", width=25)
+        self.template_sort_col_cb.pack(side="left", padx=4)
+        ttk.Label(sort_row, text="Order:", style="Card.TLabel").pack(side="left")
+        self.template_sort_order_cb = ttk.Combobox(sort_row, state="readonly",
+                                                     values=["Ascending", "Descending"], width=12)
+        self.template_sort_order_cb.pack(side="left", padx=4)
+        self.template_sort_order_cb.current(0)
+        ttk.Button(sort_row, text="Add / Update Sort Column", style="Accent.TButton",
+                   command=self.add_template_sort_key).pack(side="left", padx=8)
+        ttk.Button(sort_row, text="Clear Sort", command=self.clear_click_sort).pack(side="left")
+        ttk.Label(
+            container, style="Card.TLabel", foreground=TEXT_MUTED,
+            text="(Add more than one column for a multi-level sort - each click adds/updates that "
+                 "column's sort order. Same sort as clicking headings in the preview table below.)",
+        ).pack(anchor="w")
+
+    def add_template_sort_key(self):
+        if self.df_processed is None:
+            messagebox.showwarning("No data", "Load a file and/or auto-fill a template first.")
+            return
+        col = self.template_sort_col_cb.get()
+        order = self.template_sort_order_cb.get()
+        if not col:
+            return
+        self._click_sort(col, add=True)
+        # _click_sort toggles direction if the column is already the sort
+        # key; make sure it ends up matching the order dropdown exactly.
+        key = next((k for k in self._click_sort_keys if k["column"] == col), None)
+        if key and key["ascending"] != (order == "Ascending"):
+            key["ascending"] = (order == "Ascending")
+            self._apply_click_sort()
 
     def _build_bulk_tab(self):
         container = ttk.Frame(self.tab_bulk, padding=6, style="Card.TFrame")
@@ -807,9 +852,11 @@ class WorkspaceFrame(ttk.Frame):
         cols = [str(c) for c in columns]
         self.filter_col_cb.configure(values=cols)
         self.sort_col_cb.configure(values=cols)
+        self.template_sort_col_cb.configure(values=cols)
         if cols:
             self.filter_col_cb.current(0)
             self.sort_col_cb.current(0)
+            self.template_sort_col_cb.current(0)
 
     # ------------------------------------------------------------- Filters
     def add_filter(self):
@@ -1079,13 +1126,32 @@ class WorkspaceFrame(ttk.Frame):
 
     def _refresh_templates_list(self):
         self.templates = self._load_templates()
-        self.templates_tree.delete(*self.templates_tree.get_children())
-        for name, cols in sorted(self.templates.items()):
-            self.templates_tree.insert("", "end", iid=name, values=[name, len(cols)])
+        self._render_templates_tree()
         names = sorted(self.templates.keys())
         self.bulk_template_cb.configure(values=names)
         if names and not self.bulk_template_cb.get():
             self.bulk_template_cb.current(0)
+
+    def _render_templates_tree(self):
+        self.templates_tree.delete(*self.templates_tree.get_children())
+        items = list(self.templates.items())  # (name, columns)
+        if self._templates_sort_col == "cols":
+            items.sort(key=lambda kv: len(kv[1]), reverse=not self._templates_sort_asc)
+        else:
+            items.sort(key=lambda kv: kv[0].lower(), reverse=not self._templates_sort_asc)
+        for name, cols in items:
+            self.templates_tree.insert("", "end", iid=name, values=[name, len(cols)])
+        arrow = " \u25B2" if self._templates_sort_asc else " \u25BC"
+        self.templates_tree.heading("name", text="Template Name" + (arrow if self._templates_sort_col == "name" else ""))
+        self.templates_tree.heading("cols", text="# Columns" + (arrow if self._templates_sort_col == "cols" else ""))
+
+    def _sort_templates_tree(self, col):
+        if self._templates_sort_col == col:
+            self._templates_sort_asc = not self._templates_sort_asc
+        else:
+            self._templates_sort_col = col
+            self._templates_sort_asc = True
+        self._render_templates_tree()
 
     def _save_template(self, name, columns):
         safe_name = re.sub(r'[\\/*?:"<>|]', "_", name).strip() or "template"
@@ -1414,8 +1480,8 @@ class AlloyBenchApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Alloy Bench - Report Builder")
-        self.root.geometry("1350x950")
         apply_theme(self.root)
+        self._fit_window()
 
         self.workspaces = {}   # notebook tab path (str) -> WorkspaceFrame
         self._workspace_count = 0
@@ -1428,6 +1494,29 @@ class AlloyBenchApp:
         self.root.bind_all("<Control-Shift-Z>", lambda e: self._dispatch("redo"))
         self.root.bind_all("<Control-t>", lambda e: self.add_workspace())
         self.root.bind_all("<Control-w>", lambda e: self.close_current_workspace())
+
+    def _fit_window(self):
+        """Size the window to the actual screen instead of a fixed
+        1350x950 - on smaller/laptop screens that fixed size pushed
+        the bottom of the app (including the Export buttons) off
+        screen with no way to reach them. Also starts maximized where
+        possible so nothing is ever hidden below the visible area."""
+        self.root.update_idletasks()
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+        w = min(1350, max(sw - 80, 850))
+        h = min(950, max(sh - 120, 550))
+        x = max((sw - w) // 2, 0)
+        y = max((sh - h) // 2, 0)
+        self.root.geometry(f"{w}x{h}+{x}+{y}")
+        self.root.minsize(850, 550)
+        try:
+            self.root.state("zoomed")  # Windows, most Linux window managers
+        except tk.TclError:
+            try:
+                self.root.attributes("-zoomed", True)  # some Linux WMs
+            except tk.TclError:
+                pass  # e.g. macOS - the centered geometry above still applies
 
     def _build_chrome(self):
         topbar = ttk.Frame(self.root, style="TopBar.TFrame", padding=(16, 12))
